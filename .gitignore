@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# VS Code
+.vscode/
+
+# PyCharm
+.idea/
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Test and coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.pytest_cache/
+
+# FastAPI static/media folders
+static/
+media/
+
+# Environment variables
+*.env
+.env.*
+
+# Migrations
+migrations/
+*/migrations/
+
+# Database files
+*.db
+*.sqlite3
+
+# Build
+build/
+dist/
+*.egg-info/
