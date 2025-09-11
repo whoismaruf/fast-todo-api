@@ -21,6 +21,7 @@ from app.schema import (
     PasswordChangeRequest,
     UserResponse,
 )
+from app.redis_client import get_cache_service, CacheService
 
 router = APIRouter(
     prefix="/auth",
@@ -29,6 +30,7 @@ router = APIRouter(
 
 db_dependency = Annotated[Session, Depends(get_db)]
 user_dependency = Annotated[dict, Depends(get_current_user)]
+cache_dependency = Annotated[CacheService, Depends(get_cache_service)]
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -74,12 +76,38 @@ async def login_user(
 
 
 @router.get("/me", status_code=status.HTTP_200_OK, response_model=UserResponse)
-async def get_me(user: Annotated[dict, Depends(get_current_user)], db: db_dependency):
+async def get_me(user: Annotated[dict, Depends(get_current_user)], db: db_dependency, cache: cache_dependency):
     if user is None:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    user_model = db.query(User).filter(User.id == user.get("id")).first()  # type: ignore
+    
+    user_id = user.get("id")
+    cache_key = f"user_profile:{user_id}"
+    
+    # Try to get from cache first
+    cached_user = cache.get(cache_key)
+    if cached_user is not None:
+        return cached_user
+    
+    # If not in cache, get from database
+    user_model = db.query(User).filter(User.id == user_id).first()  # type: ignore
     if user_model is None:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Serialize user for caching (excluding sensitive data)
+    user_data = {
+        "id": user_model.id,
+        "email": user_model.email,
+        "phone_number": user_model.phone_number,
+        "username": user_model.username,
+        "first_name": user_model.first_name,
+        "last_name": user_model.last_name,
+        "is_active": user_model.is_active,
+        "role": user_model.role
+    }
+    
+    # Cache the result
+    cache.set(cache_key, user_data)
+    
     return user_model
 
 
@@ -87,16 +115,23 @@ async def get_me(user: Annotated[dict, Depends(get_current_user)], db: db_depend
 async def change_password(
     db: db_dependency,
     current_user: Annotated[dict, Depends(get_current_user)],
+    cache: cache_dependency,
     password_change: PasswordChangeRequest,
 ):
-    user_model = db.query(User).filter(User.id == current_user.get("id")).first()  # type: ignore
+    user_id = current_user.get("id")
+    user_model = db.query(User).filter(User.id == user_id).first()  # type: ignore
     if user_model is None:
         raise HTTPException(status_code=404, detail="User not found")
     if not bcrypt_context.verify(
         password_change.old_password, user_model.hashed_password
     ):
         raise HTTPException(status_code=400, detail="Old password is incorrect")
+    
     user_model.hashed_password = bcrypt_context.hash(password_change.new_password)
     db.add(user_model)
     db.commit()
+    
+    # Invalidate user cache after password change
+    cache.delete(f"user_profile:{user_id}")
+    
     return {"msg": "Password updated successfully"}

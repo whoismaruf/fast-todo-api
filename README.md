@@ -8,6 +8,7 @@ A simple Todo application with user authentication and admin management.
 *   Create, read, update, and delete Todos.
 *   Admin panel to manage users.
 *   Database migrations with Alembic.
+*   **Redis caching for improved performance** (optional, with graceful fallback).
 
 ## Getting Started
 
@@ -17,6 +18,7 @@ These instructions will get you a copy of the project up and running on your loc
 
 *   Python 3.9+
 *   pip
+*   Redis (optional, for caching)
 
 ### Installation
 
@@ -44,13 +46,42 @@ These instructions will get you a copy of the project up and running on your loc
 
     The application uses SQLite by default. No further setup is required.
 
-5.  **Run the database migrations:**
+5.  **Configure environment variables (optional):**
+
+    Create a `.env` file in the project root with the following variables:
+
+    ```env
+    # Database
+    SQLALCHEMY_DATABASE_URL=sqlite:///./app.db
+
+    # JWT Configuration
+    SECRET_KEY=your-secret-key-here
+    ALGORITHM=HS256
+
+    # CORS Origins
+    CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+
+    # Redis Configuration (optional)
+    REDIS_HOST=localhost
+    REDIS_PORT=6379
+    REDIS_PASSWORD=
+    REDIS_DB=0
+    CACHE_TTL=300
+    ```
+
+    **Redis Caching:**
+    - If Redis is available, the application will use it to cache frequently accessed data
+    - If Redis is not available, the application will continue to work normally without caching
+    - Cached data includes: user todos, individual todos, and user profiles
+    - Default cache TTL is 5 minutes (300 seconds)
+
+6.  **Run the database migrations:**
 
     ```bash
     alembic upgrade head
     ```
 
-6.  **Run the application:**
+7.  **Run the application:**
 
     ```bash
     uvicorn main:app --reload
